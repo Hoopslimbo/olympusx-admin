@@ -72,11 +72,12 @@
 
   <!-- sign in -->
   <div class="card" id="authCard">
-    <h2>Sign in</h2>
-    <div class="d">Use your Olympus account. Only accounts allowed by the database can publish changes.</div>
+    <h2 id="aTitle">Sign in</h2>
+    <div class="d" id="aSub">Use your Olympus account. Only accounts allowed by the database can publish changes.</div>
     <label class="f">Email<input id="aEmail" type="email" autocomplete="email" placeholder="you@example.com"></label>
     <label class="f">Password<input id="aPass" type="password" autocomplete="current-password" placeholder="••••••••"></label>
     <button class="btn primary" id="aGo">Sign in</button>
+    <p class="d" style="margin-top:10px"><a href="#" id="aToggle" style="color:var(--accent)">New here? Create your Olympus account</a></p>
     <p class="err" id="aErr"></p>
   </div>
 
@@ -152,6 +153,29 @@ async function signIn(email, pass) {
   token = r.body.access_token; userEmail = r.body.user.email;
   localStorage.setItem('oxa_token', token); localStorage.setItem('oxa_email', userEmail);
   enter();
+}
+async function signUp(email, pass) {
+  showErr('aErr', '');
+  const r = await api('/auth/v1/signup', { method: 'POST', body: JSON.stringify({ email, password: pass }) });
+  if (!r.ok) { showErr('aErr', (r.body && r.body.msg) || (r.body && r.body.error_description) || 'Sign up failed'); return; }
+  if (r.body && r.body.access_token) {
+    token = r.body.access_token; userEmail = email;
+    localStorage.setItem('oxa_token', token); localStorage.setItem('oxa_email', userEmail);
+    enter(); return;
+  }
+  setAuthMode('signin');
+  showErr('aErr', '');
+  $('aSub').textContent = 'Account created — check your email for the confirmation link, then sign in.';
+}
+let authMode = 'signin';
+function setAuthMode(m) {
+  authMode = m;
+  const su = m === 'signup';
+  $('aTitle').textContent = su ? 'Create your Olympus account' : 'Sign in';
+  $('aGo').textContent = su ? 'Create account' : 'Sign in';
+  $('aToggle').textContent = su ? 'Already have an account? Sign in' : 'New here? Create your Olympus account';
+  if (!su) $('aSub').textContent = 'Use your Olympus account. Only accounts allowed by the database can publish changes.';
+  showErr('aErr', '');
 }
 function signOut() { token = ''; userEmail = ''; localStorage.removeItem('oxa_token'); localStorage.removeItem('oxa_email');
   $('main').hidden = true; $('authCard').hidden = false; }
@@ -284,7 +308,8 @@ async function publishVersion() {
     $('pFile').value = ''; enter._writeKnown = false; await loadGames();
   } catch (e) { showErr('pErr', e.message); st(''); }
 }
-$('aGo').onclick = () => signIn($('aEmail').value.trim(), $('aPass').value);
+$('aGo').onclick = () => { const e = $('aEmail').value.trim(), p = $('aPass').value; authMode === 'signup' ? signUp(e, p) : signIn(e, p); };
+$('aToggle').onclick = e => { e.preventDefault(); setAuthMode(authMode === 'signup' ? 'signin' : 'signup'); };
 $('aPass').addEventListener('keydown', e => { if (e.key === 'Enter') $('aGo').click(); });
 $('aOut').onclick = signOut;
 $('addBtn').onclick = () => openForm(null);
